@@ -239,4 +239,8 @@ export const urls = {
   },
   domainService:
     "https://support.ledger.com/hc/articles/9710787581469?docs=true",
+  editEthTx: {
+    learnMore:
+      "https://support.ledger.com/hc/articles/9756122596765?support=true",
+  },
 };
