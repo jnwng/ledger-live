@@ -88,7 +88,7 @@ import {
   NavigationHeaderCloseButtonAdvanced,
 } from "../NavigationHeaderCloseButton";
 import { RedirectToRecoverStaxFlowScreen } from "../../screens/Protect/RedirectToRecoverStaxFlow";
-import EditTransactionNavigator from "./EditTransactionNavigator";
+import EditTransactionNavigator from "../../families/ethereum/EditTransactionNavigator";
 import NoFundsFlowNavigator from "./NoFundsFlowNavigator";
 
 const Stack = createStackNavigator<BaseNavigatorStackParamList>();
