@@ -78,6 +78,7 @@ import { BaseNavigatorStackParamList } from "./types/BaseNavigator";
 import DeviceConnect, {
   deviceConnectHeaderOptions,
 } from "../../screens/DeviceConnect";
+import NoFundsFlowNavigator from "./NoFundsFlowNavigator";
 import ExploreTabNavigator from "./ExploreTabNavigator";
 import StakeFlowNavigator from "./StakeFlowNavigator";
 import { RecoverPlayer } from "../../screens/Protect/Player";
@@ -89,7 +90,6 @@ import {
 } from "../NavigationHeaderCloseButton";
 import { RedirectToRecoverStaxFlowScreen } from "../../screens/Protect/RedirectToRecoverStaxFlow";
 import EditTransactionNavigator from "../../families/ethereum/EditTransactionNavigator";
-import NoFundsFlowNavigator from "./NoFundsFlowNavigator";
 
 const Stack = createStackNavigator<BaseNavigatorStackParamList>();
 
