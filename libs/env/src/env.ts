@@ -516,7 +516,7 @@ const envDefinitions: Record<
     desc: "if defined, overrides the os and version. format: os@version. Example: Windows_NT@6.1.7601",
   },
   NFT_CURRENCIES: {
-    def: "ethereum,polygon",
+    def: "ethereum,polygon,ethereum_as_evm_test_only,polygon_as_evm_test_only",
     parser: stringParser,
     desc: "set the currencies where NFT is active",
   },
