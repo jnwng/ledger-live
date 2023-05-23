@@ -130,7 +130,7 @@ export const getTransactionCount = (
   addr: string
 ): Promise<number> =>
   withApi(currency, async (api) => {
-    return api.getTransactionCount(addr);
+    return api.getTransactionCount(addr, "pending");
   });
 
 /**
