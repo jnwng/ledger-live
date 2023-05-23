@@ -5,6 +5,7 @@ import { mergeOps } from "@ledgerhq/coin-framework/bridge/jsHelpers";
 import { Account, SubAccount, Operation } from "@ledgerhq/types-live";
 import { listTokensForCryptoCurrency } from "@ledgerhq/cryptoassets/tokens";
 import { getOptimismAdditionalFees } from "./api/rpc.common";
+import { isNFTActive } from "../../nft";
 import {
   Transaction as EvmTransaction,
   EvmTransactionEIP1559,
@@ -128,6 +129,7 @@ export const mergeSubAccounts = (
 /**
  * Method creating a hash that will help triggering or not a full synchronization on an account.
  * As of now, it's checking if a token has been added, removed of changed regarding important properties
+ * and if the NFTs are activated/supported on this chain
  */
 export const getSyncHash = (currency: CryptoCurrency): string => {
   const tokens = listTokensForCryptoCurrency(currency);
@@ -141,8 +143,11 @@ export const getSyncHash = (currency: CryptoCurrency): string => {
         token.delisted
     )
     .join("");
+  const isNftSupported = isNFTActive(currency);
 
-  return ethers.utils.sha256(Buffer.from(basicTokensListString));
+  return ethers.utils.sha256(
+    Buffer.from(basicTokensListString + isNftSupported)
+  );
 };
 
 /**
