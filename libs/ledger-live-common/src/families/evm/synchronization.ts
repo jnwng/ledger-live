@@ -1,7 +1,9 @@
 import { log } from "@ledgerhq/logs";
 import { Account, Operation, SubAccount } from "@ledgerhq/types-live";
+import { decodeOperationId } from "@ledgerhq/coin-framework/operation";
 import { CryptoCurrency, TokenCurrency } from "@ledgerhq/types-cryptoassets";
-import { getSyncHash, mergeSubAccounts } from "./logic";
+import { attachOperations, getSyncHash, mergeSubAccounts } from "./logic";
+import { nftsFromOperations } from "../../nft";
 import etherscanLikeApi from "./api/etherscan";
 import {
   mergeOps,
@@ -9,9 +11,11 @@ import {
   makeScanAccounts,
   GetAccountShape,
   AccountShapeInfo,
+  mergeNfts,
 } from "../../bridge/jsHelpers";
 import {
   decodeAccountId,
+  decodeTokenAccountId,
   emptyHistoryCache,
   encodeAccountId,
   encodeTokenAccountId,
@@ -68,33 +72,32 @@ export const getAccountShape: GetAccountShape = async (infos) => {
         return (acc?.blockHeight || 0) > (curr?.blockHeight || 0) ? acc : curr;
       }, null);
 
-  // This method could not be working if the integration doesn't have an API to retreive the operations
-  const lastCoinOperations = await (async () => {
-    try {
-      const { getLastCoinOperations } = getExplorerApi(currency);
-      return await getLastCoinOperations(
-        currency,
-        address,
-        accountId,
-        latestSyncedOperation?.blockHeight || 0
-      );
-    } catch (e) {
-      log("EVM Family", "Failed to get latest transactions", {
-        address,
-        currency,
-        error: e,
-      });
-      throw e;
-    }
-  })();
+  const { lastCoinOperations, lastTokenOperations, lastNftOperations } =
+    await (async () => {
+      try {
+        const { getLastOperations } = getExplorerApi(currency);
+        return await getLastOperations(
+          currency,
+          address,
+          accountId,
+          latestSyncedOperation?.blockHeight || 0
+        );
+      } catch (e) {
+        log("EVM Family", "Failed to get latest transactions", {
+          address,
+          currency,
+          error: e,
+        });
+        throw e;
+      }
+    })();
 
   const newSubAccounts = await getSubAccounts(
     infos,
     accountId,
-    shouldSyncFromScratch
+    lastTokenOperations
   );
-  // Merging potential new subAccouns while preserving the reference (returned value will be initialAccount.subAccounts)
-  const subAccounts = mergeSubAccounts(initialAccount, newSubAccounts);
+  const subAccounts = mergeSubAccounts(initialAccount, newSubAccounts); // Merging potential new subAccouns while preserving the references
 
   // Trying to confirm pending operations that we are sure of
   // because they were made in the live
@@ -106,9 +109,37 @@ export const getAccountShape: GetAccountShape = async (infos) => {
   const confirmedOperations = await Promise.all(confirmPendingOperations).then(
     (ops) => ops.filter((op): op is Operation => !!op)
   );
-  const newOperations = [...confirmedOperations, ...lastCoinOperations];
+
+  const {
+    coinOperations: lastCoinOperationsWithAttachements, // Coin operations with children ops like token & nft ops attached to it
+    nftOperations: unattachedNftOperations, // Operations where the NFT event is not initiated by the user can't be linked to a "coin operation"
+  } = attachOperations(
+    lastCoinOperations,
+    lastTokenOperations,
+    lastNftOperations
+  );
+
+  const newOperations = [
+    ...confirmedOperations,
+    ...lastCoinOperationsWithAttachements,
+    ...unattachedNftOperations,
+  ];
   const operations = mergeOps(initialAccount?.operations || [], newOperations);
-  const lastSyncDate = new Date();
+  const operationsWithPendings = mergeOps(
+    operations,
+    initialAccount?.pendingOperations || []
+  );
+
+  // Merging potential new nfts while preserving the references.
+  //
+  // ⚠️ NFTs are aggregated manually to get the account "balance" for each of them.
+  // Because of that, we're not creating NFTs in an incremental way,
+  // but always creating them based on *all* operations.
+  const nfts = mergeNfts(
+    initialAccount?.nfts || [],
+    // Adding pendings ops to this to temporarly remove an NFT from an account if actively being transfered
+    nftsFromOperations(operationsWithPendings)
+  ).filter((nft) => nft.amount.gt(0));
 
   return {
     type: "Account",
@@ -120,7 +151,8 @@ export const getAccountShape: GetAccountShape = async (infos) => {
     operations,
     operationsCount: operations.length,
     subAccounts,
-    lastSyncDate,
+    nfts,
+    lastSyncDate: new Date(),
   } as Partial<Account>;
 };
 
@@ -130,54 +162,22 @@ export const getAccountShape: GetAccountShape = async (infos) => {
 export const getSubAccounts = async (
   infos: AccountShapeInfo,
   accountId: string,
-  shouldSyncFromScratch = false
+  lastTokenOperations: Operation[]
 ): Promise<Partial<SubAccount>[]> => {
-  const { initialAccount, address, currency } = infos;
-
-  // Get the latest operation from all subaccounts
-  const latestSyncedOperation = shouldSyncFromScratch
-    ? null
-    : initialAccount?.subAccounts
-        ?.flatMap(({ operations }) => operations)
-        .reduce<Operation | null>((acc, curr) => {
-          if (!acc) {
-            return curr;
-          }
-          return (acc?.blockHeight || 0) > (curr?.blockHeight || 0)
-            ? acc
-            : curr;
-        }, null);
-
-  // This method could not be working if the integration doesn't have an API to retreive the operations
-  const lastERC20OperationsAndCurrencies = await (async () => {
-    try {
-      const { getLastTokenOperations } = getExplorerApi(currency);
-      return await getLastTokenOperations(
-        currency,
-        address,
-        accountId,
-        latestSyncedOperation?.blockHeight || 0
-      );
-    } catch (e) {
-      log("EVM Family", "Failed to get latest ERC20 transactions", {
-        address,
-        currency,
-        error: e,
-      });
-      throw e;
-    }
-  })();
+  const { currency } = infos;
 
   // Creating a Map of Operations by TokenCurrencies in order to know which TokenAccounts should be synced as well
-  const erc20OperationsByToken = lastERC20OperationsAndCurrencies.reduce<
+  const erc20OperationsByToken = lastTokenOperations.reduce<
     Map<TokenCurrency, Operation[]>
-  >((acc, { tokenCurrency, operation }) => {
-    if (!tokenCurrency) return acc;
+  >((acc, operation) => {
+    const { accountId } = decodeOperationId(operation.id);
+    const { token } = decodeTokenAccountId(accountId);
+    if (!token) return acc;
 
-    if (!acc.has(tokenCurrency)) {
-      acc.set(tokenCurrency, []);
+    if (!acc.has(token)) {
+      acc.set(token, []);
     }
-    acc.get(tokenCurrency)?.push(operation);
+    acc.get(token)?.push(operation);
 
     return acc;
   }, new Map<TokenCurrency, Operation[]>());

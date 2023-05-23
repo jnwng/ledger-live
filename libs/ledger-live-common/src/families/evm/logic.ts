@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import BigNumber from "bignumber.js";
 import { CryptoCurrency } from "@ledgerhq/types-cryptoassets";
 import { mergeOps } from "@ledgerhq/coin-framework/bridge/jsHelpers";
-import { Account, SubAccount } from "@ledgerhq/types-live";
+import { Account, SubAccount, Operation } from "@ledgerhq/types-live";
 import { listTokensForCryptoCurrency } from "@ledgerhq/cryptoassets/tokens";
 import { getOptimismAdditionalFees } from "./api/rpc.common";
 import {
@@ -143,4 +143,67 @@ export const getSyncHash = (currency: CryptoCurrency): string => {
     .join("");
 
   return ethers.utils.sha256(Buffer.from(basicTokensListString));
+};
+
+/**
+ * Helper in charge of linking operations together based on transaction hash.
+ * Token operations & NFT operations are the result of a coin operation
+ * and if this coin operation is originated by our user we want
+ * to link those operations together as main & children ops
+ */
+export const attachOperations = (
+  _coinOperations: Operation[],
+  _tokenOperations: Operation[],
+  _nftOperations: Operation[]
+): {
+  coinOperations: Operation[];
+  tokenOperations: Operation[];
+  nftOperations: Operation[];
+} => {
+  // Creating deep copies of each Operation[] to prevent mutating the originals
+  const coinOperations = _coinOperations.map((op) => ({ ...op }));
+  const tokenOperations = _tokenOperations.map((op) => ({ ...op }));
+  const nftOperations = _nftOperations.map((op) => ({ ...op }));
+
+  // Create a Map of hash => operation
+  const coinOperationsByHash: Record<string, Operation> = {};
+  coinOperations.forEach((op) => {
+    coinOperationsByHash[op.hash] = op;
+  });
+
+  // Looping through token operations to potentially copy them as a sub operation of a coin operation
+  // once copied it's removed to avoid dups
+  for (let index = 0; index <= tokenOperations.length - 1; index++) {
+    const tokenOperation = tokenOperations[index];
+    const mainOperation = coinOperationsByHash[tokenOperation.hash];
+    if (mainOperation) {
+      if (!mainOperation.subOperations) {
+        mainOperation.subOperations = [];
+      }
+      mainOperation.subOperations.push(tokenOperation);
+      tokenOperations.splice(index, 1);
+      index--;
+    }
+  }
+
+  // Looping through nft operations to potentially copy them as a sub operation of a coin operation
+  // once copied it's removed to avoid dups
+  for (let index = 0; index <= nftOperations.length - 1; index++) {
+    const nftOperation = nftOperations[index];
+    const mainOperation = coinOperationsByHash[nftOperation.hash];
+    if (mainOperation) {
+      if (!mainOperation.nftOperations) {
+        mainOperation.nftOperations = [];
+      }
+      mainOperation.nftOperations.push(nftOperation);
+      nftOperations.splice(index, 1);
+      index--;
+    }
+  }
+
+  return {
+    coinOperations,
+    tokenOperations,
+    nftOperations,
+  };
 };
