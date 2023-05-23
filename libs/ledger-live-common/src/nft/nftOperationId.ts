@@ -1,21 +1,26 @@
 export function encodeERC721OperationId(
   nftId: string,
   hash: string,
-  type: string
+  type: string,
+  index?: number
 ): string {
-  return `${nftId}-${hash}-${type}`;
+  return typeof index === "number"
+    ? `${nftId}-${hash}-${type}-i${index}`
+    : `${nftId}-${hash}-${type}`;
 }
 
 export function decodeERC721OperationId(id: string): {
   nftId: string;
   hash: string;
   type: string;
+  index: number;
 } {
-  const [nftId, hash, type] = id.split("-");
+  const [nftId, hash, type, index] = id.split("-");
   return {
     nftId,
     hash,
     type,
+    index: index ? parseInt(index.replace("-i", ""), 10) : 0,
   };
 }
 
@@ -36,12 +41,13 @@ export function decodeERC1155OperationId(id: string): {
   i: number;
   j: number;
 } {
-  const [nftId, hash, type, i, j] = id.split("-");
+  const [nftId, hash, type, iAndJ] = id.split("-");
+  const [i, j] = iAndJ.split("_");
   return {
     nftId,
     hash,
     type,
-    i: Number(i),
-    j: Number(j),
+    i: parseInt(i.replace("-i", ""), 10),
+    j: parseInt(j, 10),
   };
 }

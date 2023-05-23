@@ -1,17 +1,23 @@
 import eip55 from "eip55";
 import { ethers } from "ethers";
 import BigNumber from "bignumber.js";
-import { TokenCurrency } from "@ledgerhq/types-cryptoassets";
 import { Operation, OperationType } from "@ledgerhq/types-live";
 import { findTokenByAddressInCurrency } from "@ledgerhq/cryptoassets";
 import { decodeAccountId, encodeTokenAccountId } from "../../account";
-import { encodeOperationId } from "../../operation";
+import { encodeOperationId, encodeSubOperationId } from "../../operation";
+import { encodeNftId } from "../../nft";
+import {
+  encodeERC1155OperationId,
+  encodeERC721OperationId,
+} from "../../nft/nftOperationId";
 import {
   Transaction as EvmTransaction,
   EvmTransactionEIP1559,
   EvmTransactionLegacy,
   EtherscanOperation,
   EtherscanERC20Event,
+  EtherscanERC721Event,
+  EtherscanERC1155Event,
 } from "./types";
 
 /**
@@ -96,8 +102,9 @@ export const etherscanOperationToOperation = (
  */
 export const etherscanERC20EventToOperation = (
   accountId: string,
-  event: EtherscanERC20Event
-): { tokenCurrency: TokenCurrency; operation: Operation } | null => {
+  event: EtherscanERC20Event,
+  index = 0
+): Operation | null => {
   const { currencyId, xpubOrAddress: address } = decodeAccountId(accountId);
   const tokenCurrency = findTokenByAddressInCurrency(
     event.contractAddress,
@@ -124,22 +131,119 @@ export const etherscanERC20EventToOperation = (
   })();
 
   return {
-    tokenCurrency,
-    operation: {
-      id: encodeOperationId(tokenAccountId, event.hash, type),
-      hash: event.hash,
-      type: type,
-      value,
-      fee,
-      senders: [from],
-      recipients: [to],
-      contract: tokenCurrency.contractAddress,
-      blockHeight: parseInt(event.blockNumber, 10),
-      blockHash: event.blockHash,
-      transactionSequenceNumber: parseInt(event.nonce, 10),
-      accountId: tokenAccountId,
-      date: new Date(parseInt(event.timeStamp, 10) * 1000),
-      extra: {},
-    },
+    id: encodeSubOperationId(tokenAccountId, event.hash, type, index),
+    hash: event.hash,
+    type: type,
+    value,
+    fee,
+    senders: [from],
+    recipients: [to],
+    contract: tokenCurrency.contractAddress,
+    blockHeight: parseInt(event.blockNumber, 10),
+    blockHash: event.blockHash,
+    transactionSequenceNumber: parseInt(event.nonce, 10),
+    accountId: tokenAccountId,
+    date: new Date(parseInt(event.timeStamp, 10) * 1000),
+    extra: {},
+  };
+};
+
+/**
+ * Adapter to convert an ERC721 transaction received
+ * on etherscan-like APIs into an Operation
+ */
+export const etherscanERC721EventToOperation = (
+  accountId: string,
+  event: EtherscanERC721Event,
+  index = 0
+): Operation => {
+  const { xpubOrAddress: address, currencyId } = decodeAccountId(accountId);
+
+  const from = eip55.encode(event.from);
+  const to = event.to ? eip55.encode(event.to) : "";
+  const value = new BigNumber(1); // value is representing the number of NFT transfered. ERC721 are always sending 1 NFT per transaction
+  const fee = new BigNumber(event.gasUsed).times(new BigNumber(event.gasPrice));
+  const contract = eip55.encode(event.contractAddress);
+  const nftId = encodeNftId(accountId, contract, event.tokenID, currencyId);
+
+  const type = ((): OperationType => {
+    if (event.contractAddress && to === eip55.encode(address)) {
+      return "NFT_IN";
+    }
+
+    if (event.contractAddress && from === eip55.encode(address)) {
+      return "NFT_OUT";
+    }
+
+    return "NONE";
+  })();
+
+  return {
+    id: encodeERC721OperationId(nftId, event.hash, type, index),
+    hash: event.hash,
+    type: type,
+    fee,
+    senders: [from],
+    recipients: [to],
+    blockHeight: parseInt(event.blockNumber, 10),
+    blockHash: event.blockHash,
+    transactionSequenceNumber: parseInt(event.nonce, 10),
+    accountId,
+    standard: "ERC721",
+    contract,
+    tokenId: event.tokenID,
+    value,
+    date: new Date(parseInt(event.timeStamp, 10) * 1000),
+    extra: {},
+  };
+};
+
+/**
+ * Adapter to convert an ERC1155 transaction received
+ * on etherscan-like APIs into an Operation
+ */
+export const etherscanERC1155EventToOperation = (
+  accountId: string,
+  event: EtherscanERC1155Event,
+  index = 0
+): Operation => {
+  const { xpubOrAddress: address, currencyId } = decodeAccountId(accountId);
+
+  const from = eip55.encode(event.from);
+  const to = event.to ? eip55.encode(event.to) : "";
+  const value = new BigNumber(event.tokenValue); // value is representing the number of NFT transfered.
+  const fee = new BigNumber(event.gasUsed).times(new BigNumber(event.gasPrice));
+  const contract = eip55.encode(event.contractAddress);
+  const nftId = encodeNftId(accountId, contract, event.tokenID, currencyId);
+
+  const type = ((): OperationType => {
+    if (event.contractAddress && to === eip55.encode(address)) {
+      return "NFT_IN";
+    }
+
+    if (event.contractAddress && from === eip55.encode(address)) {
+      return "NFT_OUT";
+    }
+
+    return "NONE";
+  })();
+
+  return {
+    id: encodeERC1155OperationId(nftId, event.hash, type, index),
+    hash: event.hash,
+    type: type,
+    fee,
+    senders: [from],
+    recipients: [to],
+    blockHeight: parseInt(event.blockNumber, 10),
+    blockHash: event.blockHash,
+    transactionSequenceNumber: parseInt(event.nonce, 10),
+    accountId,
+    standard: "ERC1155",
+    contract,
+    tokenId: event.tokenID,
+    value,
+    date: new Date(parseInt(event.timeStamp, 10) * 1000),
+    extra: {},
   };
 };
