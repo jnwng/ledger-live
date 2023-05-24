@@ -1,21 +1,20 @@
-import "../../__tests__/test-helpers/setup";
+import "../../../../__tests__/test-helpers/setup";
 
 import { BigNumber } from "bignumber.js";
+import { FeeNotLoaded, NotEnoughBalance } from "@ledgerhq/errors";
 import type { AccountRaw, DatasetTest } from "@ledgerhq/types-live";
-import { FeeTooHigh } from "@ledgerhq/errors";
-import { testBridge } from "../../__tests__/test-helpers/bridge";
-import type { Transaction } from "./types";
-import { fromTransactionRaw } from "./transaction";
-import ethereumScanAccounts1 from "./datasets/ethereum.scanAccounts.1";
-import { ethereum1 } from "./datasets/ethereum1";
+import { testBridge } from "../../../../__tests__/test-helpers/bridge";
+import { fromTransactionRaw } from "../../transaction";
+import { ethereum1 } from "../../datasets/ethereum1";
+import type { Transaction } from "../../types";
 
 const dataset: DatasetTest<Transaction> = {
   implementations: ["mock", "js"],
   currencies: {
-    ethereum: {
-      scanAccounts: [ethereumScanAccounts1],
+    ethereum_as_evm_test_only: {
       accounts: [
         {
+          FIXME_tests: ["balance is sum of ops"],
           implementations: ["js"],
           raw: ethereum1 as AccountRaw,
           transactions: [
@@ -25,20 +24,26 @@ const dataset: DatasetTest<Transaction> = {
                 family: "evm",
                 mode: "send",
                 recipient: "0x17733CAb76d9A2112576443F21735789733B1ca3",
-                amount: "10000000000000",
-                gasPrice: "100000000",
+                amount: (1e19).toString(), // 10 ETH
+                gasPrice: "0",
                 gasLimit: "21000",
                 chainId: 1,
                 nonce: 0,
               }),
-              expectedStatus: {
-                amount: new BigNumber(10000000000000),
-                estimatedFees: new BigNumber(2100000000000),
-                totalSpent: new BigNumber(12100000000000),
-                errors: {},
-                warnings: {
-                  feeTooHigh: new FeeTooHigh(),
-                },
+              expectedStatus: (account, transaction) => {
+                const estimatedFees = transaction.gasLimit.times(
+                  transaction.maxFeePerGas || 0
+                );
+                return {
+                  amount: new BigNumber(1e19), // 10 ETH
+                  estimatedFees, // fees are calculated during preparation and therefore cannot be guessed without mocks
+                  totalSpent: new BigNumber(1e19).plus(estimatedFees), // fees are calculated during preparation and therefore cannot be guessed without mocks
+                  errors: {
+                    amount: new NotEnoughBalance(), // "The parent account balance is insufficient for network fees" since account is empty
+                    gasLimit: new FeeNotLoaded(), // "Could not load fee rates. Please set manual fees" because gas estimation failed as the account is empty
+                  },
+                  warnings: {},
+                };
               },
             },
             {

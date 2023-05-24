@@ -2,18 +2,22 @@ import { ethers } from "ethers";
 import BigNumber from "bignumber.js";
 import { Operation } from "@ledgerhq/types-live";
 import { findTokenById } from "@ledgerhq/cryptoassets";
-import { encodeAccountId, encodeTokenAccountId } from "../../../account";
+import { encodeAccountId, encodeTokenAccountId } from "../../../../account";
 import {
+  EtherscanERC1155Event,
   EtherscanERC20Event,
+  EtherscanERC721Event,
   EtherscanOperation,
   EvmTransactionEIP1559,
   EvmTransactionLegacy,
-} from "../types";
+} from "../../types";
 import {
+  etherscanERC1155EventToOperation,
   etherscanERC20EventToOperation,
+  etherscanERC721EventToOperation,
   etherscanOperationToOperation,
   transactionToEthersTransaction,
-} from "../adapters";
+} from "../../adapters";
 
 const testData = Buffer.from("testBufferString").toString("hex");
 const eip1559Tx: EvmTransactionEIP1559 = {
@@ -381,7 +385,7 @@ describe("EVM Family", () => {
         const tokenAccountId = encodeTokenAccountId(accountId, tokenCurrency!);
 
         const expectedOperation: Operation = {
-          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+ethereum%2Ferc20%2Fusd__coin-0x02b972f304dc24c9bc362e6435c4ad654241f9af916689a4790145c9bcbdf4cf-OUT",
+          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+ethereum%2Ferc20%2Fusd__coin-0x02b972f304dc24c9bc362e6435c4ad654241f9af916689a4790145c9bcbdf4cf-OUT-i0",
           hash: "0x02b972f304dc24c9bc362e6435c4ad654241f9af916689a4790145c9bcbdf4cf",
           accountId: tokenAccountId,
           blockHash:
@@ -398,10 +402,9 @@ describe("EVM Family", () => {
           extra: {},
         };
 
-        expect(etherscanERC20EventToOperation(accountId, etherscanOp)).toEqual({
-          operation: expectedOperation,
-          tokenCurrency,
-        });
+        expect(etherscanERC20EventToOperation(accountId, etherscanOp)).toEqual(
+          expectedOperation
+        );
       });
 
       it("should convert a etherscan-like usdc in event (from their API) to a Ledger Live Operation", () => {
@@ -439,7 +442,7 @@ describe("EVM Family", () => {
         const tokenAccountId = encodeTokenAccountId(accountId, tokenCurrency!);
 
         const expectedOperation: Operation = {
-          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+ethereum%2Ferc20%2Fusd__coin-0x02b972f304dc24c9bc362e6435c4ad654241f9af916689a4790145c9bcbdf4cf-IN",
+          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+ethereum%2Ferc20%2Fusd__coin-0x02b972f304dc24c9bc362e6435c4ad654241f9af916689a4790145c9bcbdf4cf-IN-i0",
           hash: "0x02b972f304dc24c9bc362e6435c4ad654241f9af916689a4790145c9bcbdf4cf",
           accountId: tokenAccountId,
           blockHash:
@@ -456,10 +459,9 @@ describe("EVM Family", () => {
           extra: {},
         };
 
-        expect(etherscanERC20EventToOperation(accountId, etherscanOp)).toEqual({
-          operation: expectedOperation,
-          tokenCurrency,
-        });
+        expect(etherscanERC20EventToOperation(accountId, etherscanOp)).toEqual(
+          expectedOperation
+        );
       });
 
       it("should convert a etherscan-like usdc none event (from their API) to a Ledger Live Operation", () => {
@@ -497,7 +499,7 @@ describe("EVM Family", () => {
         const tokenAccountId = encodeTokenAccountId(accountId, tokenCurrency!);
 
         const expectedOperation: Operation = {
-          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+ethereum%2Ferc20%2Fusd__coin-0x02b972f304dc24c9bc362e6435c4ad654241f9af916689a4790145c9bcbdf4cf-NONE",
+          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+ethereum%2Ferc20%2Fusd__coin-0x02b972f304dc24c9bc362e6435c4ad654241f9af916689a4790145c9bcbdf4cf-NONE-i0",
           hash: "0x02b972f304dc24c9bc362e6435c4ad654241f9af916689a4790145c9bcbdf4cf",
           accountId: tokenAccountId,
           blockHash:
@@ -514,10 +516,355 @@ describe("EVM Family", () => {
           extra: {},
         };
 
-        expect(etherscanERC20EventToOperation(accountId, etherscanOp)).toEqual({
-          operation: expectedOperation,
-          tokenCurrency,
+        expect(etherscanERC20EventToOperation(accountId, etherscanOp)).toEqual(
+          expectedOperation
+        );
+      });
+    });
+
+    describe("etherscanER721EventToOperation", () => {
+      it("should convert a etherscan-like nft out event (from their API) to a Ledger Live Operation", () => {
+        const etherscanOp: EtherscanERC721Event = {
+          blockNumber: "4708120",
+          timeStamp: "1512907118",
+          hash: "0x031e6968a8de362e4328d60dcc7f72f0d6fc84284c452f63176632177146de66",
+          nonce: "0",
+          blockHash:
+            "0x4be19c278bfaead5cb0bc9476fa632e2447f6e6259e0303af210302d22779a24",
+          from: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          contractAddress: "0x06012c8cf97bead5deae237070f9587f8e7a266d",
+          to: "0x6975be450864c02b4613023c2152ee0743572325",
+          tokenID: "202106",
+          tokenName: "CryptoKitties",
+          tokenSymbol: "CK",
+          tokenDecimal: "0",
+          transactionIndex: "81",
+          gas: "158820",
+          gasPrice: "40000000000",
+          gasUsed: "60508",
+          cumulativeGasUsed: "4880352",
+          input: "deprecated",
+          confirmations: "7990490",
+        };
+
+        const accountId = encodeAccountId({
+          type: "js",
+          version: "2",
+          currencyId: "ethereum",
+          xpubOrAddress: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          derivationMode: "",
         });
+
+        const expectedOperation: Operation = {
+          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+0x06012c8cf97BEaD5deAe237070F9587f8E7A266d+202106+ethereum-0x031e6968a8de362e4328d60dcc7f72f0d6fc84284c452f63176632177146de66-NFT_OUT-i0",
+          hash: "0x031e6968a8de362e4328d60dcc7f72f0d6fc84284c452f63176632177146de66",
+          accountId,
+          blockHash:
+            "0x4be19c278bfaead5cb0bc9476fa632e2447f6e6259e0303af210302d22779a24",
+          blockHeight: 4708120,
+          senders: ["0x6cBCD73CD8e8a42844662f0A0e76D7F79Afd933d"],
+          recipients: ["0x6975BE450864c02B4613023C2152EE0743572325"],
+          value: new BigNumber("1"),
+          fee: new BigNumber("2420320000000000"),
+          contract: "0x06012c8cf97BEaD5deAe237070F9587f8E7A266d",
+          tokenId: "202106",
+          standard: "ERC721",
+          date: new Date("2017-12-10T11:58:38.000Z"),
+          transactionSequenceNumber: 0,
+          type: "NFT_OUT",
+          extra: {},
+        };
+
+        expect(etherscanERC721EventToOperation(accountId, etherscanOp)).toEqual(
+          expectedOperation
+        );
+      });
+
+      it("should convert a etherscan-like nft in event (from their API) to a Ledger Live Operation", () => {
+        const etherscanOp: EtherscanERC721Event = {
+          blockNumber: "4708120",
+          timeStamp: "1512907118",
+          hash: "0x031e6968a8de362e4328d60dcc7f72f0d6fc84284c452f63176632177146de66",
+          nonce: "0",
+          blockHash:
+            "0x4be19c278bfaead5cb0bc9476fa632e2447f6e6259e0303af210302d22779a24",
+          from: "0x6975be450864c02b4613023c2152ee0743572325",
+          contractAddress: "0x06012c8cf97bead5deae237070f9587f8e7a266d",
+          to: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          tokenID: "202106",
+          tokenName: "CryptoKitties",
+          tokenSymbol: "CK",
+          tokenDecimal: "0",
+          transactionIndex: "81",
+          gas: "158820",
+          gasPrice: "40000000000",
+          gasUsed: "60508",
+          cumulativeGasUsed: "4880352",
+          input: "deprecated",
+          confirmations: "7990490",
+        };
+
+        const accountId = encodeAccountId({
+          type: "js",
+          version: "2",
+          currencyId: "ethereum",
+          xpubOrAddress: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          derivationMode: "",
+        });
+
+        const expectedOperation: Operation = {
+          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+0x06012c8cf97BEaD5deAe237070F9587f8E7A266d+202106+ethereum-0x031e6968a8de362e4328d60dcc7f72f0d6fc84284c452f63176632177146de66-NFT_IN-i0",
+          hash: "0x031e6968a8de362e4328d60dcc7f72f0d6fc84284c452f63176632177146de66",
+          accountId,
+          blockHash:
+            "0x4be19c278bfaead5cb0bc9476fa632e2447f6e6259e0303af210302d22779a24",
+          blockHeight: 4708120,
+          senders: ["0x6975BE450864c02B4613023C2152EE0743572325"],
+          recipients: ["0x6cBCD73CD8e8a42844662f0A0e76D7F79Afd933d"],
+          value: new BigNumber("1"),
+          fee: new BigNumber("2420320000000000"),
+          contract: "0x06012c8cf97BEaD5deAe237070F9587f8E7A266d",
+          tokenId: "202106",
+          standard: "ERC721",
+          date: new Date("2017-12-10T11:58:38.000Z"),
+          transactionSequenceNumber: 0,
+          type: "NFT_IN",
+          extra: {},
+        };
+
+        expect(etherscanERC721EventToOperation(accountId, etherscanOp)).toEqual(
+          expectedOperation
+        );
+      });
+
+      it("should convert a etherscan-like nft none event (from their API) to a Ledger Live Operation", () => {
+        const etherscanOp: EtherscanERC721Event = {
+          blockNumber: "4708120",
+          timeStamp: "1512907118",
+          hash: "0x031e6968a8de362e4328d60dcc7f72f0d6fc84284c452f63176632177146de66",
+          nonce: "0",
+          blockHash:
+            "0x4be19c278bfaead5cb0bc9476fa632e2447f6e6259e0303af210302d22779a24",
+          from: "0x6975be450864c02b4613023c2152ee0743572325",
+          contractAddress: "0x06012c8cf97bead5deae237070f9587f8e7a266d",
+          to: "0x0000000000000000000000000000000000000000",
+          tokenID: "202106",
+          tokenName: "CryptoKitties",
+          tokenSymbol: "CK",
+          tokenDecimal: "0",
+          transactionIndex: "81",
+          gas: "158820",
+          gasPrice: "40000000000",
+          gasUsed: "60508",
+          cumulativeGasUsed: "4880352",
+          input: "deprecated",
+          confirmations: "7990490",
+        };
+
+        const accountId = encodeAccountId({
+          type: "js",
+          version: "2",
+          currencyId: "ethereum",
+          xpubOrAddress: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          derivationMode: "",
+        });
+
+        const expectedOperation: Operation = {
+          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+0x06012c8cf97BEaD5deAe237070F9587f8E7A266d+202106+ethereum-0x031e6968a8de362e4328d60dcc7f72f0d6fc84284c452f63176632177146de66-NONE-i0",
+          hash: "0x031e6968a8de362e4328d60dcc7f72f0d6fc84284c452f63176632177146de66",
+          accountId,
+          blockHash:
+            "0x4be19c278bfaead5cb0bc9476fa632e2447f6e6259e0303af210302d22779a24",
+          blockHeight: 4708120,
+          senders: ["0x6975BE450864c02B4613023C2152EE0743572325"],
+          recipients: ["0x0000000000000000000000000000000000000000"],
+          value: new BigNumber("1"),
+          fee: new BigNumber("2420320000000000"),
+          contract: "0x06012c8cf97BEaD5deAe237070F9587f8E7A266d",
+          tokenId: "202106",
+          standard: "ERC721",
+          date: new Date("2017-12-10T11:58:38.000Z"),
+          transactionSequenceNumber: 0,
+          type: "NONE",
+          extra: {},
+        };
+
+        expect(etherscanERC721EventToOperation(accountId, etherscanOp)).toEqual(
+          expectedOperation
+        );
+      });
+    });
+
+    describe("etherscanERC1155EventToOperation", () => {
+      it("should convert a etherscan-like nft out event (from their API) to a Ledger Live Operation", () => {
+        const etherscanOp: EtherscanERC1155Event = {
+          blockNumber: "13472395",
+          timeStamp: "1634973285",
+          hash: "0x643b15f3ffaad5d38e33e5872b4ebaa7a643eda8b50ffd5331f682934ee65d4d",
+          nonce: "41",
+          blockHash:
+            "0xa5da536dfbe8125eb146114e2ee0d0bdef2b20483aacbf30fed6b60f092059e6",
+          transactionIndex: "100",
+          gas: "140000",
+          gasPrice: "52898577246",
+          gasUsed: "105030",
+          cumulativeGasUsed: "11739203",
+          input: "deprecated",
+          contractAddress: "0x76be3b62873462d2142405439777e971754e8e77",
+          from: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          to: "0x83f564d180b58ad9a02a449105568189ee7de8cb",
+          tokenID: "10371",
+          tokenValue: "1",
+          tokenName: "parallel",
+          tokenSymbol: "LL",
+          confirmations: "1447769",
+        };
+
+        const accountId = encodeAccountId({
+          type: "js",
+          version: "2",
+          currencyId: "ethereum",
+          xpubOrAddress: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          derivationMode: "",
+        });
+
+        const expectedOperation: Operation = {
+          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+0x76BE3b62873462d2142405439777e971754E8E77+10371+ethereum-0x643b15f3ffaad5d38e33e5872b4ebaa7a643eda8b50ffd5331f682934ee65d4d-NFT_OUT-i0_0",
+          hash: "0x643b15f3ffaad5d38e33e5872b4ebaa7a643eda8b50ffd5331f682934ee65d4d",
+          accountId,
+          blockHash:
+            "0xa5da536dfbe8125eb146114e2ee0d0bdef2b20483aacbf30fed6b60f092059e6",
+          blockHeight: 13472395,
+          senders: ["0x6cBCD73CD8e8a42844662f0A0e76D7F79Afd933d"],
+          recipients: ["0x83f564d180B58Ad9A02A449105568189eE7DE8CB"],
+          value: new BigNumber("1"),
+          fee: new BigNumber("5555937568147380"),
+          contract: "0x76BE3b62873462d2142405439777e971754E8E77",
+          tokenId: "10371",
+          standard: "ERC1155",
+          date: new Date("2021-10-23T07:14:45.000Z"),
+          transactionSequenceNumber: 41,
+          type: "NFT_OUT",
+          extra: {},
+        };
+
+        expect(
+          etherscanERC1155EventToOperation(accountId, etherscanOp)
+        ).toEqual(expectedOperation);
+      });
+
+      it("should convert a etherscan-like nft in event (from their API) to a Ledger Live Operation", () => {
+        const etherscanOp: EtherscanERC1155Event = {
+          blockNumber: "13472395",
+          timeStamp: "1634973285",
+          hash: "0x643b15f3ffaad5d38e33e5872b4ebaa7a643eda8b50ffd5331f682934ee65d4d",
+          nonce: "41",
+          blockHash:
+            "0xa5da536dfbe8125eb146114e2ee0d0bdef2b20483aacbf30fed6b60f092059e6",
+          transactionIndex: "100",
+          gas: "140000",
+          gasPrice: "52898577246",
+          gasUsed: "105030",
+          cumulativeGasUsed: "11739203",
+          input: "deprecated",
+          contractAddress: "0x76be3b62873462d2142405439777e971754e8e77",
+          from: "0x83f564d180b58ad9a02a449105568189ee7de8cb",
+          to: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          tokenID: "10371",
+          tokenValue: "1",
+          tokenName: "parallel",
+          tokenSymbol: "LL",
+          confirmations: "1447769",
+        };
+
+        const accountId = encodeAccountId({
+          type: "js",
+          version: "2",
+          currencyId: "ethereum",
+          xpubOrAddress: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          derivationMode: "",
+        });
+
+        const expectedOperation: Operation = {
+          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+0x76BE3b62873462d2142405439777e971754E8E77+10371+ethereum-0x643b15f3ffaad5d38e33e5872b4ebaa7a643eda8b50ffd5331f682934ee65d4d-NFT_IN-i0_0",
+          hash: "0x643b15f3ffaad5d38e33e5872b4ebaa7a643eda8b50ffd5331f682934ee65d4d",
+          accountId,
+          blockHash:
+            "0xa5da536dfbe8125eb146114e2ee0d0bdef2b20483aacbf30fed6b60f092059e6",
+          blockHeight: 13472395,
+          senders: ["0x83f564d180B58Ad9A02A449105568189eE7DE8CB"],
+          recipients: ["0x6cBCD73CD8e8a42844662f0A0e76D7F79Afd933d"],
+          value: new BigNumber("1"),
+          fee: new BigNumber("5555937568147380"),
+          contract: "0x76BE3b62873462d2142405439777e971754E8E77",
+          tokenId: "10371",
+          standard: "ERC1155",
+          date: new Date("2021-10-23T07:14:45.000Z"),
+          transactionSequenceNumber: 41,
+          type: "NFT_IN",
+          extra: {},
+        };
+
+        expect(
+          etherscanERC1155EventToOperation(accountId, etherscanOp)
+        ).toEqual(expectedOperation);
+      });
+
+      it("should convert a etherscan-like nft none event (from their API) to a Ledger Live Operation", () => {
+        const etherscanOp: EtherscanERC1155Event = {
+          blockNumber: "13472395",
+          timeStamp: "1634973285",
+          hash: "0x643b15f3ffaad5d38e33e5872b4ebaa7a643eda8b50ffd5331f682934ee65d4d",
+          nonce: "41",
+          blockHash:
+            "0xa5da536dfbe8125eb146114e2ee0d0bdef2b20483aacbf30fed6b60f092059e6",
+          transactionIndex: "100",
+          gas: "140000",
+          gasPrice: "52898577246",
+          gasUsed: "105030",
+          cumulativeGasUsed: "11739203",
+          input: "deprecated",
+          contractAddress: "0x76be3b62873462d2142405439777e971754e8e77",
+          from: "0x83f564d180b58ad9a02a449105568189ee7de8cb",
+          to: "0x0000000000000000000000000000000000000000",
+          tokenID: "10371",
+          tokenValue: "1",
+          tokenName: "parallel",
+          tokenSymbol: "LL",
+          confirmations: "1447769",
+        };
+
+        const accountId = encodeAccountId({
+          type: "js",
+          version: "2",
+          currencyId: "ethereum",
+          xpubOrAddress: "0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d",
+          derivationMode: "",
+        });
+
+        const expectedOperation: Operation = {
+          id: "js:2:ethereum:0x6cbcd73cd8e8a42844662f0a0e76d7f79afd933d:+0x76BE3b62873462d2142405439777e971754E8E77+10371+ethereum-0x643b15f3ffaad5d38e33e5872b4ebaa7a643eda8b50ffd5331f682934ee65d4d-NONE-i0_0",
+          hash: "0x643b15f3ffaad5d38e33e5872b4ebaa7a643eda8b50ffd5331f682934ee65d4d",
+          accountId,
+          blockHash:
+            "0xa5da536dfbe8125eb146114e2ee0d0bdef2b20483aacbf30fed6b60f092059e6",
+          blockHeight: 13472395,
+          senders: ["0x83f564d180B58Ad9A02A449105568189eE7DE8CB"],
+          recipients: ["0x0000000000000000000000000000000000000000"],
+          value: new BigNumber("1"),
+          fee: new BigNumber("5555937568147380"),
+          contract: "0x76BE3b62873462d2142405439777e971754E8E77",
+          tokenId: "10371",
+          standard: "ERC1155",
+          date: new Date("2021-10-23T07:14:45.000Z"),
+          transactionSequenceNumber: 41,
+          type: "NONE",
+          extra: {},
+        };
+
+        expect(
+          etherscanERC1155EventToOperation(accountId, etherscanOp)
+        ).toEqual(expectedOperation);
       });
     });
   });

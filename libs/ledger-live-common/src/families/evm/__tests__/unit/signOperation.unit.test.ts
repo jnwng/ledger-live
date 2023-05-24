@@ -2,12 +2,12 @@ import BigNumber from "bignumber.js";
 import { Account } from "@ledgerhq/types-live";
 import { CryptoCurrency } from "@ledgerhq/types-cryptoassets";
 import { getCryptoCurrencyById } from "@ledgerhq/cryptoassets";
-import signOperation, { applyEIP155 } from "../signOperation";
-import { Transaction as EvmTransaction } from "../types";
-import * as Device from "../../../hw/deviceAccess";
-import { getEstimatedFees } from "../logic";
-import { makeAccount } from "../testUtils";
-import * as rpcAPI from "../api/rpc.common";
+import signOperation, { applyEIP155 } from "../../signOperation";
+import { Transaction as EvmTransaction } from "../../types";
+import { makeAccount } from "../fixtures/common.fixtures";
+import * as Device from "../../../../hw/deviceAccess";
+import { getEstimatedFees } from "../../logic";
+import * as rpcAPI from "../../api/rpc.common";
 
 const currency: CryptoCurrency = {
   ...getCryptoCurrencyById("ethereum"),

@@ -1,11 +1,14 @@
 import eip55 from "eip55";
 import BigNumber from "bignumber.js";
 import { getTokenById } from "@ledgerhq/cryptoassets/tokens";
+import { encodeNftId } from "@ledgerhq/coin-framework/nft/nftId";
 import { getCryptoCurrencyById } from "@ledgerhq/cryptoassets/currencies";
-import { makeAccount, makeTokenAccount } from "../../../evm/testUtils";
 import { modes } from "../../modules/send";
 import { Transaction } from "../../types";
-import { encodeNftId } from "@ledgerhq/coin-framework/nft/nftId";
+import {
+  makeAccount,
+  makeTokenAccount,
+} from "../../../evm/__tests__/fixtures/common.fixtures";
 
 const ethereum = getCryptoCurrencyById("ethereum");
 const usdc = getTokenById("ethereum/erc20/usd__coin");
@@ -16,7 +19,7 @@ enum NFT_CONTRACTS {
   ERC1155 = "0xd07dc4262bcdbf85190c01c996b4c06a461d2430",
 }
 
-const account = makeAccount("0x123", ethereum, [tokenAccount]);
+const account = { ...makeAccount("0x123", ethereum, [tokenAccount]) };
 account.nfts = [
   {
     amount: new BigNumber(1),

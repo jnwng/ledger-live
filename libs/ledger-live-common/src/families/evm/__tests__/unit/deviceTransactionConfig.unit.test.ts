@@ -1,9 +1,9 @@
 import BigNumber from "bignumber.js";
 import { getCryptoCurrencyById, getTokenById } from "@ledgerhq/cryptoassets";
-import getDeviceTransactionConfig from "../deviceTransactionConfig";
-import { makeAccount, makeTokenAccount } from "../testUtils";
-import getTransactionStatus from "../getTransactionStatus";
-import { Transaction as EvmTransaction } from "../types";
+import { makeAccount, makeTokenAccount } from "../fixtures/common.fixtures";
+import getDeviceTransactionConfig from "../../deviceTransactionConfig";
+import getTransactionStatus from "../../getTransactionStatus";
+import { Transaction as EvmTransaction } from "../../types";
 
 const currency = getCryptoCurrencyById("ethereum");
 const tokenCurrency = getTokenById("ethereum/erc20/usd__coin");

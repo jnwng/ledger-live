@@ -1,14 +1,14 @@
 import { ethers } from "ethers";
 import BigNumber from "bignumber.js";
 import { getCryptoCurrencyById, getTokenById } from "@ledgerhq/cryptoassets";
-import { makeAccount, makeTokenAccount } from "../testUtils";
-import { Transaction as EvmTransaction } from "../types";
-import ERC20ABI from "../abis/erc20.abi.json";
-import * as rpcAPI from "../api/rpc.common";
+import { makeAccount, makeTokenAccount } from "../fixtures/common.fixtures";
+import { Transaction as EvmTransaction } from "../../types";
+import ERC20ABI from "../../abis/erc20.abi.json";
+import * as rpcAPI from "../../api/rpc.common";
 import {
   prepareForSignOperation,
   prepareTransaction,
-} from "../prepareTransaction";
+} from "../../prepareTransaction";
 
 const currency = getCryptoCurrencyById("ethereum");
 const tokenAccount = makeTokenAccount(
@@ -61,6 +61,13 @@ describe("EVM Family", () => {
     });
 
     describe("prepareTransaction", () => {
+      it("should preserve the reference when no change is detected on the transaction", async () => {
+        const tx = await prepareTransaction(account, transaction);
+        const tx2 = await prepareTransaction(account, tx);
+
+        expect(tx).toBe(tx2);
+      });
+
       describe("Coins", () => {
         it("should have a gasLimit = 0 when recipient has an error", async () => {
           jest
