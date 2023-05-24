@@ -1,3 +1,5 @@
+/* instanbul ignore file: don't test fixtures */
+
 import BigNumber from "bignumber.js";
 import { encodeOperationId } from "@ledgerhq/coin-framework/operation";
 import { CryptoCurrency, TokenCurrency } from "@ledgerhq/types-cryptoassets";

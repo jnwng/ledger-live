@@ -111,6 +111,7 @@ export const signOperation: AccountBridge<EvmTransaction>["signOperation"] = ({
 
         main().then(
           () => o.complete(),
+          /* istanbul ignore next: don't test throwing an error */
           (e) => o.error(e)
         );
       })

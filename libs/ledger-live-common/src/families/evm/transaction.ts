@@ -22,6 +22,7 @@ import type {
 
 export const DEFAULT_GAS_LIMIT = new BigNumber(21000);
 
+/* istanbul ignore next: don't test CLI text helpers */
 /**
  * Format the transaction for the CLI
  */
@@ -135,7 +136,8 @@ export const getTransactionData = (
     transaction.amount.toFixed(),
   ]);
 
-  return data ? Buffer.from(data.slice(2), "hex") : undefined;
+  // removing 0x prefix
+  return Buffer.from(data.slice(2), "hex");
 };
 
 /**
