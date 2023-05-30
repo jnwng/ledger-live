@@ -10,7 +10,7 @@ import {
 export type UseToggleOnboardingEarlyCheckArgs = {
   toggleOnboardingEarlyCheckAction?: typeof defaultToggleOnboardingEarlyCheckAction;
   deviceId: string;
-  toggleType: ToggleOnboardingEarlyCheckActionArgs["toggleType"];
+  toggleType: ToggleOnboardingEarlyCheckActionArgs["toggleType"] | null;
 };
 
 /**
@@ -21,28 +21,46 @@ export type UseToggleOnboardingEarlyCheckArgs = {
  *
  * If the device is not in the WELCOME or WELCOME_STEP2 onboarding state, this hook will update
  * its `toggleStatus` to `failure`.
+ *
+ * You can reset the result state by updating `toggleType` to null
+ *
  * @param deviceId The id of the targeted device that can be
- * @param toggleType either "enter" or "exit"
+ * @param toggleType either null, "enter" or "exit".
+ *  If null, the hook does not subscribe to the underlying device action, and nothing happens.
+ *  Useful to enable/disable this hook.
  * @param toggleOnboardingEarlyCheckAction dependency injected action. A default implementation is provided.
  * @returns an object containing the state of the onboarding early check toggling with possible error.
+ *  The resulting state is reset to `null` on each new triggering of the toggle action (when `toggleType` is updated)
  */
 export const useToggleOnboardingEarlyCheck = ({
   toggleOnboardingEarlyCheckAction = defaultToggleOnboardingEarlyCheckAction,
   deviceId,
   toggleType,
 }: UseToggleOnboardingEarlyCheckArgs): {
-  toggleOnboardingEarlyCheckState: ToggleOnboardingEarlyCheckActionState;
+  toggleOnboardingEarlyCheckState: ToggleOnboardingEarlyCheckActionState | null;
 } => {
   const [state, setState] =
-    useState<ToggleOnboardingEarlyCheckActionState>(initialState);
+    useState<ToggleOnboardingEarlyCheckActionState | null>(initialState);
 
   useEffect(() => {
-    toggleOnboardingEarlyCheckAction({ deviceId, toggleType }).subscribe({
+    if (toggleType === null) return;
+
+    const subscription = toggleOnboardingEarlyCheckAction({
+      deviceId,
+      toggleType,
+    }).subscribe({
       next: setState,
       error: (error: unknown) => {
         log("useToggleOnboardingEarlyCheck", "Unknown error", error);
       },
     });
+
+    return () => {
+      // Resets the resulting state on each new triggering
+      setState(null);
+
+      subscription.unsubscribe();
+    };
   }, [deviceId, toggleOnboardingEarlyCheckAction, toggleType]);
 
   return { toggleOnboardingEarlyCheckState: state };
