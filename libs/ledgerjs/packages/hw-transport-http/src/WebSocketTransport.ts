@@ -22,7 +22,7 @@ export default class WebSocketTransport extends Transport {
   // this transport is not discoverable
   static list = (): any => Promise.resolve([]);
   static listen = (_observer: any) => ({
-    unsubscribe: () => {},
+    unsubscribe: () => {}
   });
   static check = async (url: string, timeout = 5000) =>
     new Promise((resolve, reject) => {
@@ -68,14 +68,14 @@ export default class WebSocketTransport extends Transport {
           rejectExchange: (_e: any) => {},
           onDisconnect: () => {},
           close: () => socket.close(),
-          send: (msg) => socket.send(msg),
+          send: msg => socket.send(msg)
         };
 
         socket.onopen = () => {
           socket.send("open");
         };
 
-        socket.onerror = (e) => {
+        socket.onerror = e => {
           exchangeMethods.onDisconnect();
           reject(e);
         };
@@ -85,7 +85,7 @@ export default class WebSocketTransport extends Transport {
           reject(new TransportError("OpenFailed", "OpenFailed"));
         };
 
-        socket.onmessage = (e) => {
+        socket.onmessage = e => {
           if (typeof e.data !== "string") return;
           const data = JSON.parse(e.data);
 
@@ -100,6 +100,7 @@ export default class WebSocketTransport extends Transport {
               );
 
             case "response":
+              log("websocket", data);
               return exchangeMethods.resolveExchange(
                 Buffer.from(data.data, "hex")
               );
@@ -109,9 +110,7 @@ export default class WebSocketTransport extends Transport {
         reject(e);
       }
     });
-    // import to return new this(..) and not WebSocketTransport because
-    // WebSocketTransport can be extended, and is extended by VaultTransport
-    return new this(exchangeMethods);
+    return new WebSocketTransport(exchangeMethods);
   }
 
   hook: any;
@@ -146,7 +145,7 @@ export default class WebSocketTransport extends Transport {
 
   async close() {
     this.hook.close();
-    return new Promise<void>((success) => {
+    return new Promise<void>(success => {
       setTimeout(() => {
         success(undefined);
       }, 200);
