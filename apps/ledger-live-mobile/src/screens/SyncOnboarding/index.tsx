@@ -11,6 +11,8 @@ import { RootStackParamList } from "../../components/RootNavigator/types/RootNav
 import { SyncOnboardingStackParamList } from "../../components/RootNavigator/types/SyncOnboardingNavigator";
 import { SyncOnboardingCompanion } from "./SyncOnboardingCompanion";
 import { EarlySecurityCheck } from "./EarlySecurityCheck";
+import DesyncDrawer from "./DesyncDrawer";
+import { track } from "../../analytics";
 
 export type SyncOnboardingScreenProps = CompositeScreenProps<
   StackScreenProps<
@@ -24,6 +26,7 @@ export type SyncOnboardingScreenProps = CompositeScreenProps<
 >;
 
 const POLLING_PERIOD_MS = 1000;
+const DESYNC_TIMEOUT_MS = 20000;
 
 /**
  * Synchronous onboarding screen composed of the "early security/onboarding checks" step and the "synchronous companion" step
@@ -43,6 +46,8 @@ export const SyncOnboarding = ({
   const [isPollingOn, setIsPollingOn] = useState<boolean>(true);
   const [toggleOnboardingEarlyCheckType, setToggleOnboardingEarlyCheckType] =
     useState<null | "enter" | "exit">(null);
+
+  const [isDesyncDrawerOpen, setDesyncDrawerOpen] = useState<boolean>(false);
 
   const { onboardingState, allowedError, fatalError } =
     useOnboardingStatePolling({
@@ -96,37 +101,36 @@ export const SyncOnboarding = ({
     }
   }, [onboardingState]);
 
-  // TODO: need to maybe handle fatalError and allowedError like SyncOnboardingCompanion
+  // A fatal error during polling triggers directly an error message
   useEffect(() => {
-    if (allowedError) {
-      console.error(
-        `SyncOnboarding allowed error: ${JSON.stringify(allowedError)}`,
-      );
-    }
     if (fatalError) {
-      console.error(
-        `SyncOnboarding fatal error: ${JSON.stringify(fatalError)}`,
-      );
+      setIsPollingOn(false);
+      setDesyncDrawerOpen(true);
     }
-  }, [allowedError, fatalError]);
+  }, [fatalError]);
+
+  // An allowed error during polling (which makes the polling retry) only triggers an error message after a timeout
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+
+    if (allowedError) {
+      timeout = setTimeout(() => {
+        setIsPollingOn(false);
+        setDesyncDrawerOpen(true);
+      }, DESYNC_TIMEOUT_MS);
+    }
+
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [allowedError]);
 
   useEffect(() => {
     if (toggleOnboardingEarlyCheckState.toggleStatus === "none") return;
 
-    console.log(
-      `🥦 useEffect: toggle type and state = ${JSON.stringify({
-        toggleOnboardingEarlyCheckType,
-        toggleOnboardingEarlyCheckState,
-      })}`,
-    );
-
     if (toggleOnboardingEarlyCheckState.toggleStatus === "failure") {
-      console.log(
-        `ToggleOnboardingEarlyCheck error: ${JSON.stringify(
-          toggleOnboardingEarlyCheckState.error,
-        )}`,
-      );
-
       // If an error occurred during the toggling the safe backup is to bring the device to the "companion" step
       setToggleOnboardingEarlyCheckType(null);
       setCurrentStep("companion");
@@ -144,30 +148,25 @@ export const SyncOnboarding = ({
     }
   }, [toggleOnboardingEarlyCheckState, toggleOnboardingEarlyCheckType]);
 
-  console.log(
-    `🧠 currentStep: ${currentStep} | toggleOnboardingEarlyCheckType: ${toggleOnboardingEarlyCheckType}`,
-  );
+  const onLostDevice = useCallback(() => {
+    setDesyncDrawerOpen(true);
+  }, []);
 
-  if (currentStep === "early-security-check") {
-    return (
-      <EarlySecurityCheck
-        device={device}
-        notifyOnboardingEarlyCheckEnded={notifyOnboardingEarlyCheckEnded}
-      />
-    );
-  }
+  const handleDesyncRetry = useCallback(() => {
+    track("button_clicked", {
+      button: "Try again",
+      drawer: "Could not connect to Stax",
+    });
+    // handleDesyncClose is then called once the drawer is fully closed
+    setDesyncDrawerOpen(false);
+  }, []);
 
-  if (currentStep === "companion") {
-    return (
-      <SyncOnboardingCompanion
-        navigation={navigation}
-        device={device}
-        notifySyncOnboardingShouldReset={notifySyncOnboardingShouldReset}
-      />
-    );
-  }
+  const handleDesyncClose = useCallback(() => {
+    setDesyncDrawerOpen(false);
+    navigation.goBack();
+  }, [navigation]);
 
-  return (
+  let stepContent = (
     <Flex
       height="100%"
       width="100%"
@@ -176,5 +175,35 @@ export const SyncOnboarding = ({
     >
       <InfiniteLoader />
     </Flex>
+  );
+
+  if (currentStep === "early-security-check") {
+    stepContent = (
+      <EarlySecurityCheck
+        device={device}
+        notifyOnboardingEarlyCheckEnded={notifyOnboardingEarlyCheckEnded}
+      />
+    );
+  } else if (currentStep === "companion") {
+    stepContent = (
+      <SyncOnboardingCompanion
+        navigation={navigation}
+        device={device}
+        notifySyncOnboardingShouldReset={notifySyncOnboardingShouldReset}
+        onLostDevice={onLostDevice}
+      />
+    );
+  }
+
+  return (
+    <>
+      <DesyncDrawer
+        isOpen={isDesyncDrawerOpen}
+        onClose={handleDesyncClose}
+        onRetry={handleDesyncRetry}
+        device={device}
+      />
+      {stepContent}
+    </>
   );
 };

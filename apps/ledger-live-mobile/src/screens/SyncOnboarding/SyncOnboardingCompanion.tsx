@@ -34,7 +34,6 @@ import { DeviceModelId } from "@ledgerhq/types-devices";
 import { addKnownDevice } from "../../actions/ble";
 import { ScreenName } from "../../const";
 import HelpDrawer from "./HelpDrawer";
-import DesyncDrawer from "./DesyncDrawer";
 import ResyncOverlay, { PlainOverlay } from "./ResyncOverlay";
 import SoftwareChecksStep from "./SoftwareChecksStep";
 import {
@@ -45,7 +44,7 @@ import {
 } from "../../actions/settings";
 import InstallSetOfApps from "../../components/DeviceAction/InstallSetOfApps";
 import Stories from "../../components/StorylyStories";
-import { TrackScreen, screen, track } from "../../analytics";
+import { TrackScreen, screen } from "../../analytics";
 import ContinueOnStax from "./assets/ContinueOnStax";
 import { NavigationHeaderCloseButton } from "../../components/NavigationHeaderCloseButton";
 import type { SyncOnboardingScreenProps } from ".";
@@ -73,8 +72,13 @@ export type SyncOnboardingCompanionProps = {
    * issue, and to update the react-navigation header with available languages
    */
   navigation: SyncOnboardingScreenProps["navigation"];
-
-  // Called when the companion component thinks the device is not in a correct state anymore
+  /**
+   * Called when the polling from the companion component has definitely lost/is desync with the device
+   */
+  onLostDevice: () => void;
+  /**
+   * Called when the companion component thinks the device is not in a correct state anymore
+   */
   notifySyncOnboardingShouldReset: () => void;
 };
 
@@ -129,7 +133,7 @@ const ContinueOnDeviceWithAnim: React.FC<{
  */
 export const SyncOnboardingCompanion: React.FC<
   SyncOnboardingCompanionProps
-> = ({ navigation, device, notifySyncOnboardingShouldReset }) => {
+> = ({ navigation, device, onLostDevice, notifySyncOnboardingShouldReset }) => {
   const { t } = useTranslation();
   const dispatchRedux = useDispatch();
   const deviceInitialApps = useFeature("deviceInitialApps");
@@ -183,7 +187,7 @@ export const SyncOnboardingCompanion: React.FC<
       estimatedTime: estimatedTime / 60,
     });
 
-  const [stopPolling, setStopPolling] = useState<boolean>(false);
+  const [isPollingOn, setIsPollingOn] = useState<boolean>(true);
   const [pollingPeriodMs, setPollingPeriodMs] = useState<number>(
     normalPollingPeriodMs,
   );
@@ -201,7 +205,6 @@ export const SyncOnboardingCompanion: React.FC<
 
   const [isDesyncOverlayOpen, setIsDesyncOverlayOpen] =
     useState<boolean>(false);
-  const [isDesyncDrawerOpen, setDesyncDrawerOpen] = useState<boolean>(false);
   const [isHelpDrawerOpen, setHelpDrawerOpen] = useState<boolean>(false);
   const [shouldRestoreApps, setShouldRestoreApps] = useState<boolean>(false);
 
@@ -212,7 +215,7 @@ export const SyncOnboardingCompanion: React.FC<
   } = useOnboardingStatePolling({
     device,
     pollingPeriodMs,
-    stopPolling,
+    stopPolling: !isPollingOn,
   });
 
   // Unmount cleanup to make sure the polling is stopped.
@@ -220,27 +223,14 @@ export const SyncOnboardingCompanion: React.FC<
   // has been observed to be called after, and some apdu could still be exchanged with the device
   useEffect(() => {
     return () => {
-      setStopPolling(true);
+      setIsPollingOn(false);
     };
   }, []);
 
   const handleDesyncTimedOut = useCallback(() => {
-    setDesyncDrawerOpen(true);
-  }, []);
-
-  const handleDesyncRetry = useCallback(() => {
-    // handleDesyncClose is then called
-    track("button_clicked", {
-      button: "Try again",
-      drawer: "Could not connect to Stax",
-    });
-    setDesyncDrawerOpen(false);
-  }, []);
-
-  const handleDesyncClose = useCallback(() => {
-    setDesyncDrawerOpen(false);
-    navigation.goBack();
-  }, [navigation]);
+    setIsPollingOn(false);
+    onLostDevice();
+  }, [onLostDevice]);
 
   const handleDeviceReady = useCallback(() => {
     // Adds the device to the list of known devices
@@ -263,8 +253,9 @@ export const SyncOnboardingCompanion: React.FC<
     if (!fatalError) {
       return;
     }
-    setDesyncDrawerOpen(true);
-  }, [fatalError]);
+    setIsPollingOn(false);
+    onLostDevice();
+  }, [fatalError, onLostDevice]);
 
   // Reacts to allowedError from the polling to set or clean the desync timeout
   useEffect(() => {
@@ -291,12 +282,6 @@ export const SyncOnboardingCompanion: React.FC<
       }
     };
   }, [allowedError, handleDesyncTimedOut, desyncTimeoutMs]);
-
-  useEffect(() => {
-    if (isDesyncDrawerOpen) {
-      setStopPolling(true);
-    }
-  }, [isDesyncDrawerOpen]);
 
   /**
    * True if the device was initially onboarded/seeded when this component got
@@ -463,7 +448,7 @@ export const SyncOnboardingCompanion: React.FC<
 
   useEffect(() => {
     if (companionStepKey >= CompanionStepKey.SoftwareCheck) {
-      setStopPolling(true);
+      setIsPollingOn(false);
     }
 
     if (companionStepKey === CompanionStepKey.Exit) {
@@ -706,12 +691,6 @@ export const SyncOnboardingCompanion: React.FC<
       <HelpDrawer
         isOpen={isHelpDrawerOpen}
         onClose={() => setHelpDrawerOpen(false)}
-      />
-      <DesyncDrawer
-        isOpen={isDesyncDrawerOpen}
-        onClose={handleDesyncClose}
-        onRetry={handleDesyncRetry}
-        device={device}
       />
       <Flex position="relative" flex={1} px={6}>
         <ResyncOverlay
