@@ -30,17 +30,21 @@ export type UseToggleOnboardingEarlyCheckArgs = {
  *  Useful to enable/disable this hook.
  * @param toggleOnboardingEarlyCheckAction dependency injected action. A default implementation is provided.
  * @returns an object containing the state of the onboarding early check toggling with possible error.
- *  The resulting state is reset to `null` on each new triggering of the toggle action (when `toggleType` is updated)
+ *   The resulting state is reset to its initial state on each new triggering of the toggle action (when `toggleType` is updated):
+ * {
+ *   toggleStatus: "none",
+ *   ...initialSharedActionState,
+ * }
  */
 export const useToggleOnboardingEarlyCheck = ({
   toggleOnboardingEarlyCheckAction = defaultToggleOnboardingEarlyCheckAction,
   deviceId,
   toggleType,
 }: UseToggleOnboardingEarlyCheckArgs): {
-  toggleOnboardingEarlyCheckState: ToggleOnboardingEarlyCheckActionState | null;
+  state: ToggleOnboardingEarlyCheckActionState;
 } => {
   const [state, setState] =
-    useState<ToggleOnboardingEarlyCheckActionState | null>(initialState);
+    useState<ToggleOnboardingEarlyCheckActionState>(initialState);
 
   useEffect(() => {
     if (toggleType === null) return;
@@ -57,11 +61,11 @@ export const useToggleOnboardingEarlyCheck = ({
 
     return () => {
       // Resets the resulting state on each new triggering
-      setState(null);
+      setState(initialState);
 
       subscription.unsubscribe();
     };
   }, [deviceId, toggleOnboardingEarlyCheckAction, toggleType]);
 
-  return { toggleOnboardingEarlyCheckState: state };
+  return { state };
 };

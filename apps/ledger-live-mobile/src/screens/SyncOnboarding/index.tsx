@@ -51,10 +51,11 @@ export const SyncOnboarding = ({
       stopPolling: !isPollingOn,
     });
 
-  const { toggleOnboardingEarlyCheckState } = useToggleOnboardingEarlyCheck({
-    deviceId: device.deviceId,
-    toggleType: toggleOnboardingEarlyCheckType,
-  });
+  const { state: toggleOnboardingEarlyCheckState } =
+    useToggleOnboardingEarlyCheck({
+      deviceId: device.deviceId,
+      toggleType: toggleOnboardingEarlyCheckType,
+    });
 
   const notifyOnboardingEarlyCheckEnded = useCallback(() => {
     setToggleOnboardingEarlyCheckType("exit");
@@ -110,7 +111,7 @@ export const SyncOnboarding = ({
   }, [allowedError, fatalError]);
 
   useEffect(() => {
-    if (!toggleOnboardingEarlyCheckState) return;
+    if (toggleOnboardingEarlyCheckState.toggleStatus === "none") return;
 
     console.log(
       `🥦 useEffect: toggle type and state = ${JSON.stringify({
